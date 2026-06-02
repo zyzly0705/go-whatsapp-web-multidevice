@@ -352,6 +352,11 @@ body {
     align-items: start;
 }
 
+.main-workspace-grid {
+    grid-template-columns: minmax(300px, 0.9fr) minmax(360px, 1.1fr);
+    align-items: start;
+}
+
 .tool-panel {
     background:
         linear-gradient(rgba(17, 17, 17, 0.018) 1px, transparent 1px),
@@ -396,6 +401,95 @@ body {
     color: var(--muted-text-color);
     font-size: 13px;
     line-height: 1.45;
+}
+
+.config-file-card {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 12px;
+    border: 1px solid var(--soft-line-color);
+    border-radius: 8px;
+    background: #fafafa;
+    margin-bottom: 12px;
+}
+
+.config-file-card strong {
+    font-size: 13px;
+}
+
+.config-file-card span {
+    color: var(--muted-text-color);
+    font-size: 12px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.global-toggle {
+    margin-bottom: 12px;
+}
+
+.rules-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.rule-list-item {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    border: 1px solid var(--soft-line-color);
+    border-radius: 8px;
+    padding: 12px;
+    background: #ffffff;
+    color: var(--text-color);
+    text-align: left;
+    cursor: pointer;
+}
+
+.rule-list-item:hover,
+.rule-list-item.selected {
+    border-color: #111111;
+    background: #f7f7f7;
+}
+
+.rule-list-item.disabled {
+    opacity: 0.72;
+}
+
+.rule-list-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.rule-list-title strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rule-list-title em {
+    flex: 0 0 auto;
+    font-style: normal;
+    color: var(--muted-text-color);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.rule-list-item span,
+.rule-list-item small {
+    overflow-wrap: anywhere;
+}
+
+.rule-editor-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.85fr);
+    gap: 18px;
+    align-items: start;
 }
 
 .time-range-row {
@@ -595,7 +689,7 @@ body {
 
 .forward-history-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
     gap: 10px;
     margin-top: 12px;
 }
@@ -760,6 +854,11 @@ body {
     }
 
     .workbench-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .main-workspace-grid,
+    .rule-editor-grid {
         grid-template-columns: 1fr;
     }
 

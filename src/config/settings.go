@@ -6,6 +6,23 @@ import (
 	"go.mau.fi/whatsmeow/proto/waCompanionReg"
 )
 
+type DingTalkRule struct {
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	Enabled       bool     `json:"enabled"`
+	Webhook       string   `json:"webhook"`
+	WebhookAlias  string   `json:"webhook_alias"`
+	Secret        string   `json:"secret"`
+	Keywords      []string `json:"keywords"`
+	Groups        []string `json:"groups"`
+	OnlyGroups    bool     `json:"only_groups"`
+	Title         string   `json:"title"`
+	AtMobiles     []string `json:"at_mobiles"`
+	AtAll         bool     `json:"at_all"`
+	MaxBodyLength int      `json:"max_body_length"`
+	TimeWindows   []string `json:"time_windows"`
+}
+
 var (
 	AppVersion             = "v8.6.0"
 	AppPort                = "3000"
@@ -63,6 +80,7 @@ var (
 	DingTalkAtAll         = false
 	DingTalkMaxBodyLength = 500
 	DingTalkTimeWindows   []string
+	DingTalkRules         []DingTalkRule
 
 	ChatStorageURI               = "file:storages/chatstorage.db"
 	ChatStorageEnableForeignKeys = true

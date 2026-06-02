@@ -38,17 +38,62 @@ type dingTalkAtRecipient struct {
 }
 
 func shouldForwardToDingTalk(eventName string, payload map[string]any) bool {
-	if !config.DingTalkEnabled || config.DingTalkWebhook == "" || eventName != EventTypeMessage {
-		return false
+	return len(matchingDingTalkRules(eventName, payload, time.Now())) > 0
+}
+
+func submitDingTalk(ctx context.Context, eventName string, payload map[string]any) error {
+	message := dingTalkMessagePayload(payload)
+	message = enrichDingTalkMessage(ctx, message)
+
+	var firstErr error
+	for _, rule := range matchingDingTalkRulesForMessage(eventName, message, time.Now()) {
+		err := sendDingTalkPayload(ctx, eventName, buildDingTalkPayloadForRule(message, rule), rule.Webhook, rule.Secret)
+
+		status := dingTalkHistoryStatusSuccess
+		errorText := ""
+		if err != nil {
+			status = dingTalkHistoryStatusFailed
+			errorText = err.Error()
+			if firstErr == nil {
+				firstErr = err
+			}
+		}
+		if recordErr := recordDingTalkForwardHistory(buildDingTalkHistoryEntryForRule(message, rule, status, errorText)); recordErr != nil {
+			logrus.Warnf("record dingtalk forward history failed: %v", recordErr)
+		}
 	}
 
-	message := dingTalkMessagePayload(payload)
+	return firstErr
+}
+
+func matchingDingTalkRules(eventName string, payload map[string]any, now time.Time) []config.DingTalkRule {
+	return matchingDingTalkRulesForMessage(eventName, dingTalkMessagePayload(payload), now)
+}
+
+func matchingDingTalkRulesForMessage(eventName string, message map[string]any, now time.Time) []config.DingTalkRule {
+	if !config.DingTalkEnabled || eventName != EventTypeMessage {
+		return nil
+	}
+
+	matches := []config.DingTalkRule{}
+	for _, rule := range effectiveDingTalkRules() {
+		if !rule.Enabled || strings.TrimSpace(rule.Webhook) == "" {
+			continue
+		}
+		if dingTalkRuleMatchesMessage(rule, message, now) {
+			matches = append(matches, rule)
+		}
+	}
+	return matches
+}
+
+func dingTalkRuleMatchesMessage(rule config.DingTalkRule, message map[string]any, now time.Time) bool {
 	chatID := stringFromPayload(message, "chat_id")
 	isGroupChat := utils.IsGroupJID(chatID)
-	if config.DingTalkOnlyGroups && !isGroupChat {
+	if rule.OnlyGroups && !isGroupChat {
 		return false
 	}
-	if isGroupChat && !matchesAnyConfiguredValue(chatID, config.DingTalkGroups) {
+	if isGroupChat && !matchesAnyConfiguredValue(chatID, rule.Groups) {
 		return false
 	}
 
@@ -56,36 +101,81 @@ func shouldForwardToDingTalk(eventName string, payload map[string]any) bool {
 	if body == "" {
 		body = extractStructuredMessageContent(message)
 	}
-	if !containsAnyKeyword(body, config.DingTalkKeywords) {
+	if !containsAnyKeyword(body, rule.Keywords) {
 		return false
 	}
-	if !isDingTalkWithinTimeWindows(time.Now(), config.DingTalkTimeWindows) {
+	if !isDingTalkWithinTimeWindows(now, rule.TimeWindows) {
 		return false
 	}
 
 	return true
 }
 
-func submitDingTalk(ctx context.Context, eventName string, payload map[string]any) error {
-	message := dingTalkMessagePayload(payload)
-	message = enrichDingTalkMessage(ctx, message)
-	err := sendDingTalkPayload(ctx, eventName, buildDingTalkPayload(message))
-
-	status := dingTalkHistoryStatusSuccess
-	errorText := ""
-	if err != nil {
-		status = dingTalkHistoryStatusFailed
-		errorText = err.Error()
-	}
-	if recordErr := recordDingTalkForwardHistory(buildDingTalkHistoryEntry(message, status, errorText)); recordErr != nil {
-		logrus.Warnf("record dingtalk forward history failed: %v", recordErr)
+func effectiveDingTalkRules() []config.DingTalkRule {
+	if len(config.DingTalkRules) > 0 {
+		rules := make([]config.DingTalkRule, 0, len(config.DingTalkRules))
+		for _, rule := range config.DingTalkRules {
+			rules = append(rules, normalizeDingTalkRule(rule))
+		}
+		return rules
 	}
 
-	return err
+	if strings.TrimSpace(config.DingTalkWebhook) == "" {
+		return nil
+	}
+	return []config.DingTalkRule{normalizeDingTalkRule(config.DingTalkRule{
+		ID:            "default",
+		Name:          "默认规则",
+		Enabled:       true,
+		Webhook:       config.DingTalkWebhook,
+		WebhookAlias:  config.DingTalkWebhookAlias,
+		Secret:        config.DingTalkSecret,
+		Keywords:      config.DingTalkKeywords,
+		Groups:        config.DingTalkGroups,
+		OnlyGroups:    config.DingTalkOnlyGroups,
+		Title:         config.DingTalkTitle,
+		AtMobiles:     config.DingTalkAtMobiles,
+		AtAll:         config.DingTalkAtAll,
+		MaxBodyLength: config.DingTalkMaxBodyLength,
+		TimeWindows:   config.DingTalkTimeWindows,
+	})}
+}
+
+func normalizeDingTalkRule(rule config.DingTalkRule) config.DingTalkRule {
+	if strings.TrimSpace(rule.ID) == "" {
+		rule.ID = fmt.Sprintf("rule-%d", time.Now().UnixNano())
+	}
+	if strings.TrimSpace(rule.Name) == "" {
+		rule.Name = "未命名规则"
+	}
+	if strings.TrimSpace(rule.Title) == "" {
+		rule.Title = "WA 预警提醒"
+	}
+	if rule.MaxBodyLength <= 0 {
+		rule.MaxBodyLength = 500
+	}
+	return rule
 }
 
 func SendDingTalkTest(ctx context.Context) error {
-	title := strings.TrimSpace(config.DingTalkTitle)
+	for _, rule := range effectiveDingTalkRules() {
+		if strings.TrimSpace(rule.Webhook) != "" {
+			return SendDingTalkTestForRule(ctx, rule)
+		}
+	}
+	return SendDingTalkTestForRule(ctx, config.DingTalkRule{
+		Title:         config.DingTalkTitle,
+		Webhook:       config.DingTalkWebhook,
+		Secret:        config.DingTalkSecret,
+		AtMobiles:     config.DingTalkAtMobiles,
+		AtAll:         config.DingTalkAtAll,
+		MaxBodyLength: config.DingTalkMaxBodyLength,
+	})
+}
+
+func SendDingTalkTestForRule(ctx context.Context, rule config.DingTalkRule) error {
+	rule = normalizeDingTalkRule(rule)
+	title := strings.TrimSpace(rule.Title)
 	if title == "" {
 		title = "WA 预警提醒"
 	}
@@ -94,22 +184,24 @@ func SendDingTalkTest(ctx context.Context) error {
 		MsgType: "markdown",
 		Markdown: dingTalkMarkdown{
 			Title: title,
-			Text: fmt.Sprintf("### %s\n\nGOWA DingTalk test message.\n\n- 时间: %s\n- 来源: GOWA runtime config",
+			Text: fmt.Sprintf("### %s\n\n保存前校验消息已发送成功。\n\n- 规则: %s\n- 机器人: %s\n- 时间: %s",
 				title,
+				escapeMarkdownInline(rule.Name),
+				escapeMarkdownInline(firstNonEmpty(rule.WebhookAlias, "未命名机器人")),
 				time.Now().Format(time.RFC3339),
 			),
 		},
 		At: dingTalkAtRecipient{
-			AtMobiles: cleanStringSlice(config.DingTalkAtMobiles),
-			IsAtAll:   config.DingTalkAtAll,
+			AtMobiles: cleanStringSlice(rule.AtMobiles),
+			IsAtAll:   rule.AtAll,
 		},
 	}
 
-	return sendDingTalkPayload(ctx, "dingtalk.test", payload)
+	return sendDingTalkPayload(ctx, "dingtalk.test", payload, rule.Webhook, rule.Secret)
 }
 
-func sendDingTalkPayload(ctx context.Context, eventName string, payload dingTalkPayload) error {
-	if strings.TrimSpace(config.DingTalkWebhook) == "" {
+func sendDingTalkPayload(ctx context.Context, eventName string, payload dingTalkPayload, webhook, secret string) error {
+	if strings.TrimSpace(webhook) == "" {
 		return fmt.Errorf("dingtalk webhook is not configured")
 	}
 
@@ -118,7 +210,7 @@ func sendDingTalkPayload(ctx context.Context, eventName string, payload dingTalk
 		return fmt.Errorf("marshal dingtalk payload: %w", err)
 	}
 
-	requestURL, err := buildDingTalkWebhookURL(config.DingTalkWebhook, config.DingTalkSecret, time.Now().UnixMilli())
+	requestURL, err := buildDingTalkWebhookURL(webhook, secret, time.Now().UnixMilli())
 	if err != nil {
 		return err
 	}
@@ -167,7 +259,16 @@ func buildDingTalkWebhookURL(rawURL, secret string, timestamp int64) (string, er
 }
 
 func buildDingTalkPayload(message map[string]any) dingTalkPayload {
-	title := strings.TrimSpace(config.DingTalkTitle)
+	return buildDingTalkPayloadForRule(message, normalizeDingTalkRule(config.DingTalkRule{
+		Title:         config.DingTalkTitle,
+		AtMobiles:     config.DingTalkAtMobiles,
+		AtAll:         config.DingTalkAtAll,
+		MaxBodyLength: config.DingTalkMaxBodyLength,
+	}))
+}
+
+func buildDingTalkPayloadForRule(message map[string]any, rule config.DingTalkRule) dingTalkPayload {
+	title := strings.TrimSpace(rule.Title)
 	if title == "" {
 		title = "WA 预警提醒"
 	}
@@ -179,7 +280,7 @@ func buildDingTalkPayload(message map[string]any) dingTalkPayload {
 	if body == "" {
 		body = "(unsupported message type)"
 	}
-	body = truncateRunes(body, config.DingTalkMaxBodyLength)
+	body = truncateRunes(body, rule.MaxBodyLength)
 
 	text := fmt.Sprintf("### %s\n\n**群名：** %s\n\n**发送人：** %s\n\n**时间：** %s\n\n**消息内容：**\n\n> %s",
 		title,
@@ -196,8 +297,8 @@ func buildDingTalkPayload(message map[string]any) dingTalkPayload {
 			Text:  text,
 		},
 		At: dingTalkAtRecipient{
-			AtMobiles: cleanStringSlice(config.DingTalkAtMobiles),
-			IsAtAll:   config.DingTalkAtAll,
+			AtMobiles: cleanStringSlice(rule.AtMobiles),
+			IsAtAll:   rule.AtAll,
 		},
 	}
 }

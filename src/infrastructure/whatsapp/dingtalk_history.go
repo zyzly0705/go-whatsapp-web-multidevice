@@ -27,6 +27,8 @@ type DingTalkForwardHistoryEntry struct {
 	ChatName    string `json:"chat_name"`
 	Sender      string `json:"sender"`
 	Message     string `json:"message"`
+	RuleName    string `json:"rule_name,omitempty"`
+	RobotAlias  string `json:"robot_alias,omitempty"`
 	Status      string `json:"status"`
 	Error       string `json:"error,omitempty"`
 }
@@ -90,6 +92,14 @@ func recordDingTalkForwardHistory(entry DingTalkForwardHistoryEntry) error {
 }
 
 func buildDingTalkHistoryEntry(message map[string]any, status, errorText string) DingTalkForwardHistoryEntry {
+	return buildDingTalkHistoryEntryForRule(message, config.DingTalkRule{
+		Name:          "默认规则",
+		WebhookAlias:  config.DingTalkWebhookAlias,
+		MaxBodyLength: config.DingTalkMaxBodyLength,
+	}, status, errorText)
+}
+
+func buildDingTalkHistoryEntryForRule(message map[string]any, rule config.DingTalkRule, status, errorText string) DingTalkForwardHistoryEntry {
 	body := stringFromPayload(message, "body")
 	if body == "" {
 		body = extractStructuredMessageContent(message)
@@ -103,7 +113,9 @@ func buildDingTalkHistoryEntry(message map[string]any, status, errorText string)
 		ForwardedAt: time.Now().Format(time.RFC3339),
 		ChatName:    dingTalkHistoryChatLabel(message),
 		Sender:      firstNonEmpty(stringFromPayload(message, "from_name"), stringFromPayload(message, "from")),
-		Message:     truncateRunes(body, config.DingTalkMaxBodyLength),
+		Message:     truncateRunes(body, rule.MaxBodyLength),
+		RuleName:    rule.Name,
+		RobotAlias:  rule.WebhookAlias,
 		Status:      status,
 		Error:       truncateRunes(strings.TrimSpace(errorText), 300),
 	}

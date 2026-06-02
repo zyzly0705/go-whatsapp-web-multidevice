@@ -90,6 +90,7 @@ func TestSubmitDingTalkSendsMarkdownPayload(t *testing.T) {
 	defer server.Close()
 
 	withDingTalkConfig(t, func() {
+		config.DingTalkEnabled = true
 		config.DingTalkWebhook = server.URL
 		config.DingTalkTitle = "WA 预警提醒"
 
@@ -111,6 +112,62 @@ func TestSubmitDingTalkSendsMarkdownPayload(t *testing.T) {
 	}
 	if !strings.Contains(markdown["text"].(string), "重要业务提醒：订单异常") {
 		t.Fatalf("expected message body in markdown text, got %s", markdown["text"])
+	}
+}
+
+func TestSubmitDingTalkRoutesMatchingRulesToDifferentRobots(t *testing.T) {
+	var financeHits int
+	financeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		financeHits++
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer financeServer.Close()
+
+	var opsHits int
+	opsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		opsHits++
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer opsServer.Close()
+
+	withDingTalkConfig(t, func() {
+		config.DingTalkEnabled = true
+		config.DingTalkRules = []config.DingTalkRule{
+			{
+				ID:            "finance",
+				Name:          "财务群",
+				Enabled:       true,
+				Webhook:       financeServer.URL,
+				Keywords:      []string{"付款"},
+				Groups:        []string{"120363@finance@g.us"},
+				OnlyGroups:    true,
+				Title:         "财务提醒",
+				MaxBodyLength: 500,
+			},
+			{
+				ID:            "ops",
+				Name:          "运营群",
+				Enabled:       true,
+				Webhook:       opsServer.URL,
+				Keywords:      []string{"库存"},
+				Groups:        []string{"120363@ops@g.us"},
+				OnlyGroups:    true,
+				Title:         "运营提醒",
+				MaxBodyLength: 500,
+			},
+		}
+
+		err := submitDingTalk(context.Background(), "message", webhookPayload("120363@finance@g.us", "付款异常，请处理"))
+		if err != nil {
+			t.Fatalf("expected finance rule to submit successfully, got %v", err)
+		}
+	})
+
+	if financeHits != 1 {
+		t.Fatalf("expected finance robot to receive 1 message, got %d", financeHits)
+	}
+	if opsHits != 0 {
+		t.Fatalf("expected ops robot not to receive finance message, got %d", opsHits)
 	}
 }
 
@@ -276,6 +333,7 @@ func withDingTalkConfig(t *testing.T, fn func()) {
 	originalAtMobiles := config.DingTalkAtMobiles
 	originalAtAll := config.DingTalkAtAll
 	originalTimeWindows := config.DingTalkTimeWindows
+	originalRules := config.DingTalkRules
 	originalHistoryPath := dingTalkForwardHistoryPathOverride
 
 	defer func() {
@@ -289,6 +347,7 @@ func withDingTalkConfig(t *testing.T, fn func()) {
 		config.DingTalkAtMobiles = originalAtMobiles
 		config.DingTalkAtAll = originalAtAll
 		config.DingTalkTimeWindows = originalTimeWindows
+		config.DingTalkRules = originalRules
 		dingTalkForwardHistoryPathOverride = originalHistoryPath
 	}()
 
@@ -302,6 +361,7 @@ func withDingTalkConfig(t *testing.T, fn func()) {
 	config.DingTalkAtMobiles = nil
 	config.DingTalkAtAll = false
 	config.DingTalkTimeWindows = nil
+	config.DingTalkRules = nil
 	dingTalkForwardHistoryPathOverride = filepath.Join(t.TempDir(), "dingtalk-forward-history.json")
 
 	fn()
