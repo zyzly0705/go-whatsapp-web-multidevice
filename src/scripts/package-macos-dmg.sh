@@ -23,7 +23,7 @@ create_dmg() {
 
   echo "Packaging macOS DMG for ${arch}..."
   rm -rf "$bundle_dir" "$dmg_path"
-  mkdir -p "${bundle_dir}/Contents/MacOS"
+  mkdir -p "${bundle_dir}/Contents/MacOS" "${bundle_dir}/Contents/Resources"
 
   cp "$binary" "${bundle_dir}/Contents/MacOS/wa-alert"
   chmod +x "${bundle_dir}/Contents/MacOS/wa-alert"
@@ -59,6 +59,12 @@ create_dmg() {
 </dict>
 </plist>
 PLIST
+
+  printf "APPL????" > "${bundle_dir}/Contents/PkgInfo"
+
+  if command -v codesign >/dev/null 2>&1; then
+    codesign --force --deep --sign - "$bundle_dir"
+  fi
 
   staging_dir="$(mktemp -d)"
   cp -R "$bundle_dir" "${staging_dir}/${app_name}.app"
