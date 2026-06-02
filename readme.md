@@ -216,6 +216,18 @@ To use environment variables:
 | `WHATSAPP_PRESENCE_PULSE_ENABLED`       | Enable daily available/unavailable presence pulse             | `true`                                       | `WHATSAPP_PRESENCE_PULSE_ENABLED=false`       |
 | `WHATSAPP_PRESENCE_PULSE_INTERVAL`      | Interval between presence pulses                              | `24h`                                        | `WHATSAPP_PRESENCE_PULSE_INTERVAL=24h`        |
 | `WHATSAPP_PRESENCE_PULSE_DURATION`      | Duration to stay available during each pulse                  | `5m`                                         | `WHATSAPP_PRESENCE_PULSE_DURATION=5m`         |
+| `DINGTALK_ENABLED`                      | Enable DingTalk robot notifications for matching WhatsApp messages | `false`                                 | `DINGTALK_ENABLED=true`                       |
+| `DINGTALK_WEBHOOK`                      | DingTalk robot webhook URL                                    | -                                            | `DINGTALK_WEBHOOK=https://oapi.dingtalk.com/robot/send?access_token=xxx` |
+| `DINGTALK_WEBHOOK_ALIAS`                | Local display name for the saved DingTalk webhook              | -                                            | `DINGTALK_WEBHOOK_ALIAS=业务预警机器人`        |
+| `DINGTALK_SECRET`                       | DingTalk robot signing secret                                 | -                                            | `DINGTALK_SECRET=SECxxx`                      |
+| `DINGTALK_KEYWORDS`                     | Comma-separated message keywords; empty forwards all matching chats | -                                      | `DINGTALK_KEYWORDS=重要业务提醒,告警`          |
+| `DINGTALK_GROUPS`                       | Comma-separated WhatsApp chat IDs allowed for DingTalk forwarding; empty allows all matching chats | -             | `DINGTALK_GROUPS=120363xxx@g.us`              |
+| `DINGTALK_ONLY_GROUPS`                  | Only forward WhatsApp group messages to DingTalk              | `true`                                       | `DINGTALK_ONLY_GROUPS=true`                   |
+| `DINGTALK_TITLE`                        | DingTalk markdown title; can also satisfy keyword security    | `WA 预警提醒`                                | `DINGTALK_TITLE=WA 预警提醒`                  |
+| `DINGTALK_AT_MOBILES`                   | Comma-separated DingTalk mobile numbers to mention            | -                                            | `DINGTALK_AT_MOBILES=13800000000`             |
+| `DINGTALK_AT_ALL`                       | Mention all DingTalk group members                            | `false`                                      | `DINGTALK_AT_ALL=false`                       |
+| `DINGTALK_MAX_BODY_LENGTH`              | Max WhatsApp message body length included in DingTalk notification | `500`                                  | `DINGTALK_MAX_BODY_LENGTH=500`                |
+| `DINGTALK_TIME_WINDOWS`                 | Comma-separated notification windows in local time             | -                                            | `DINGTALK_TIME_WINDOWS=09:00-18:00`           |
 | `CHATWOOT_ENABLED`                      | Enable Chatwoot integration                                   | `false`                                      | `CHATWOOT_ENABLED=true`                       |
 | `CHATWOOT_URL`                          | Chatwoot instance URL                                         | -                                            | `CHATWOOT_URL=https://app.chatwoot.com`       |
 | `CHATWOOT_API_TOKEN`                    | Chatwoot API access token                                     | -                                            | `CHATWOOT_API_TOKEN=your-api-token`           |
@@ -294,6 +306,24 @@ Note: Command-line flags will override any values set in environment variables o
     2. Windows: `.\whatsapp.exe rest` (for REST API mode)
         1. run `.\whatsapp.exe --help` for more detail flags
 6. open `http://localhost:3000` in browser
+
+### Local browser alert workbench
+
+This fork can run as a lightweight desktop-style tool: start the Go binary and it opens the Chinese WhatsApp group alert workbench in the local browser.
+
+- `APP_OPEN_BROWSER=true` opens the workbench automatically after the REST server starts.
+- `APP_BASIC_AUTH=` disables the web login layer for local use.
+- WhatsApp pairing still happens in the workbench when the selected device is not logged in.
+- DingTalk settings, monitored groups, keywords, and notification windows are saved back to `.env`.
+
+Build macOS and Windows binaries with pure-Go SQLite:
+
+```bash
+cd src
+./scripts/build-local-browser.sh
+```
+
+The binaries are written to `src/dist/`.
 
 ### Cross-Compile for Raspberry Pi (ARM)
 

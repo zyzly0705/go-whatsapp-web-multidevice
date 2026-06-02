@@ -163,8 +163,7 @@ func handleWebhookForward(ctx context.Context, evt *events.Message, client *what
 		}
 	}
 
-	if (len(config.WhatsappWebhook) > 0 || config.ChatwootEnabled) &&
-		!strings.Contains(evt.Info.SourceString(), "broadcast") {
+	if shouldForwardMessageEvent(evt) {
 		go func(e *events.Message, c *whatsmeow.Client) {
 			webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
@@ -173,4 +172,11 @@ func handleWebhookForward(ctx context.Context, evt *events.Message, client *what
 			}
 		}(evt, client)
 	}
+}
+
+func shouldForwardMessageEvent(evt *events.Message) bool {
+	if evt == nil || strings.Contains(evt.Info.SourceString(), "broadcast") {
+		return false
+	}
+	return len(config.WhatsappWebhook) > 0 || config.ChatwootEnabled || config.DingTalkEnabled
 }

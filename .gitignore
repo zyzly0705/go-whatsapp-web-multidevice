@@ -6,6 +6,7 @@ src/gowa
 
 # Build artifacts
 src/pkged.go
+src/dist/
 
 # Database
 *.db

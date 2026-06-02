@@ -16,6 +16,7 @@ var (
 	AppBasicAuthCredential []string
 	AppBasePath            = ""
 	AppTrustedProxies      []string // Trusted proxy IP ranges (e.g., "0.0.0.0/0" for all, or specific CIDRs)
+	AppOpenBrowser         = true
 
 	McpPort = "8080"
 	McpHost = "localhost"
@@ -49,6 +50,19 @@ var (
 	WhatsappPresencePulseEnabled               = true          // Periodically pulse presence available, then unavailable
 	WhatsappPresencePulseInterval              = 24 * time.Hour
 	WhatsappPresencePulseDuration              = 5 * time.Minute
+
+	DingTalkEnabled       = false
+	DingTalkWebhook       = ""
+	DingTalkWebhookAlias  = ""
+	DingTalkSecret        = ""
+	DingTalkKeywords      []string
+	DingTalkGroups        []string
+	DingTalkOnlyGroups    = true
+	DingTalkTitle         = "WA 预警提醒"
+	DingTalkAtMobiles     []string
+	DingTalkAtAll         = false
+	DingTalkMaxBodyLength = 500
+	DingTalkTimeWindows   []string
 
 	ChatStorageURI               = "file:storages/chatstorage.db"
 	ChatStorageEnableForeignKeys = true

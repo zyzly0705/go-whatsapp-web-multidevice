@@ -79,7 +79,6 @@ func init() {
 
 // initEnvConfig loads configuration from environment variables
 func initEnvConfig() {
-	fmt.Println(viper.AllSettings())
 	// Application settings
 	if envPort := viper.GetString("app_port"); envPort != "" {
 		config.AppPort = envPort
@@ -103,6 +102,9 @@ func initEnvConfig() {
 	if envTrustedProxies := viper.GetString("app_trusted_proxies"); envTrustedProxies != "" {
 		proxies := strings.Split(envTrustedProxies, ",")
 		config.AppTrustedProxies = proxies
+	}
+	if viper.IsSet("app_open_browser") {
+		config.AppOpenBrowser = viper.GetBool("app_open_browser")
 	}
 
 	// Database settings
@@ -158,6 +160,44 @@ func initEnvConfig() {
 		if duration := viper.GetDuration("whatsapp_presence_pulse_duration"); duration > 0 {
 			config.WhatsappPresencePulseDuration = duration
 		}
+	}
+	if viper.IsSet("dingtalk_enabled") {
+		config.DingTalkEnabled = viper.GetBool("dingtalk_enabled")
+	}
+	if envDingTalkWebhook := viper.GetString("dingtalk_webhook"); envDingTalkWebhook != "" {
+		config.DingTalkWebhook = envDingTalkWebhook
+	}
+	if envDingTalkWebhookAlias := viper.GetString("dingtalk_webhook_alias"); envDingTalkWebhookAlias != "" {
+		config.DingTalkWebhookAlias = envDingTalkWebhookAlias
+	}
+	if envDingTalkSecret := viper.GetString("dingtalk_secret"); envDingTalkSecret != "" {
+		config.DingTalkSecret = envDingTalkSecret
+	}
+	if envDingTalkKeywords := viper.GetString("dingtalk_keywords"); envDingTalkKeywords != "" {
+		config.DingTalkKeywords = strings.Split(envDingTalkKeywords, ",")
+	}
+	if envDingTalkGroups := viper.GetString("dingtalk_groups"); envDingTalkGroups != "" {
+		config.DingTalkGroups = strings.Split(envDingTalkGroups, ",")
+	}
+	if viper.IsSet("dingtalk_only_groups") {
+		config.DingTalkOnlyGroups = viper.GetBool("dingtalk_only_groups")
+	}
+	if envDingTalkTitle := viper.GetString("dingtalk_title"); envDingTalkTitle != "" {
+		config.DingTalkTitle = envDingTalkTitle
+	}
+	if envDingTalkAtMobiles := viper.GetString("dingtalk_at_mobiles"); envDingTalkAtMobiles != "" {
+		config.DingTalkAtMobiles = strings.Split(envDingTalkAtMobiles, ",")
+	}
+	if viper.IsSet("dingtalk_at_all") {
+		config.DingTalkAtAll = viper.GetBool("dingtalk_at_all")
+	}
+	if viper.IsSet("dingtalk_max_body_length") {
+		if maxBodyLength := viper.GetInt("dingtalk_max_body_length"); maxBodyLength > 0 {
+			config.DingTalkMaxBodyLength = maxBodyLength
+		}
+	}
+	if envDingTalkTimeWindows := viper.GetString("dingtalk_time_windows"); envDingTalkTimeWindows != "" {
+		config.DingTalkTimeWindows = strings.Split(envDingTalkTimeWindows, ",")
 	}
 
 	// Chatwoot settings
@@ -233,6 +273,12 @@ func initFlags() {
 		"trusted-proxies", "",
 		config.AppTrustedProxies,
 		`trusted proxy IP ranges for reverse proxy deployments --trusted-proxies <string> | example: --trusted-proxies="0.0.0.0/0" or --trusted-proxies="10.0.0.0/8,172.16.0.0/12"`,
+	)
+	rootCmd.PersistentFlags().BoolVarP(
+		&config.AppOpenBrowser,
+		"open-browser", "",
+		config.AppOpenBrowser,
+		`open the local workbench in the default browser after REST server starts --open-browser <true/false> | example: --open-browser=true`,
 	)
 
 	// Database flags
@@ -327,6 +373,74 @@ func initFlags() {
 		"presence-pulse-duration", "",
 		config.WhatsappPresencePulseDuration,
 		`duration to stay available during a presence pulse --presence-pulse-duration <duration> | example: --presence-pulse-duration=5m`,
+	)
+
+	// DingTalk flags
+	rootCmd.PersistentFlags().BoolVarP(
+		&config.DingTalkEnabled,
+		"dingtalk-enabled", "",
+		config.DingTalkEnabled,
+		`enable DingTalk notification forwarding --dingtalk-enabled <true/false> | example: --dingtalk-enabled=true`,
+	)
+	rootCmd.PersistentFlags().StringVarP(
+		&config.DingTalkWebhook,
+		"dingtalk-webhook", "",
+		config.DingTalkWebhook,
+		`DingTalk robot webhook URL --dingtalk-webhook <string> | example: --dingtalk-webhook="https://oapi.dingtalk.com/robot/send?access_token=xxx"`,
+	)
+	rootCmd.PersistentFlags().StringVarP(
+		&config.DingTalkSecret,
+		"dingtalk-secret", "",
+		config.DingTalkSecret,
+		`DingTalk robot signing secret --dingtalk-secret <string> | example: --dingtalk-secret="SECxxx"`,
+	)
+	rootCmd.PersistentFlags().StringSliceVarP(
+		&config.DingTalkKeywords,
+		"dingtalk-keywords", "",
+		config.DingTalkKeywords,
+		`comma-separated keywords required in message body; empty forwards all matching chats --dingtalk-keywords <string> | example: --dingtalk-keywords="重要业务提醒,告警"`,
+	)
+	rootCmd.PersistentFlags().StringSliceVarP(
+		&config.DingTalkGroups,
+		"dingtalk-groups", "",
+		config.DingTalkGroups,
+		`comma-separated WhatsApp chat IDs allowed for DingTalk forwarding; empty allows all matching chats --dingtalk-groups <string> | example: --dingtalk-groups="120363xxx@g.us"`,
+	)
+	rootCmd.PersistentFlags().BoolVarP(
+		&config.DingTalkOnlyGroups,
+		"dingtalk-only-groups", "",
+		config.DingTalkOnlyGroups,
+		`only forward WhatsApp group messages to DingTalk --dingtalk-only-groups <true/false> | example: --dingtalk-only-groups=true`,
+	)
+	rootCmd.PersistentFlags().StringVarP(
+		&config.DingTalkTitle,
+		"dingtalk-title", "",
+		config.DingTalkTitle,
+		`DingTalk markdown title and keyword-safe heading --dingtalk-title <string> | example: --dingtalk-title="WA 预警提醒"`,
+	)
+	rootCmd.PersistentFlags().StringSliceVarP(
+		&config.DingTalkAtMobiles,
+		"dingtalk-at-mobiles", "",
+		config.DingTalkAtMobiles,
+		`comma-separated mobile numbers to @ in DingTalk --dingtalk-at-mobiles <string> | example: --dingtalk-at-mobiles="13800000000"`,
+	)
+	rootCmd.PersistentFlags().BoolVarP(
+		&config.DingTalkAtAll,
+		"dingtalk-at-all", "",
+		config.DingTalkAtAll,
+		`@ all members in DingTalk notification --dingtalk-at-all <true/false> | example: --dingtalk-at-all=false`,
+	)
+	rootCmd.PersistentFlags().IntVarP(
+		&config.DingTalkMaxBodyLength,
+		"dingtalk-max-body-length", "",
+		config.DingTalkMaxBodyLength,
+		`max WhatsApp message body length included in DingTalk notification --dingtalk-max-body-length <int> | example: --dingtalk-max-body-length=500`,
+	)
+	rootCmd.PersistentFlags().StringSliceVarP(
+		&config.DingTalkTimeWindows,
+		"dingtalk-time-windows", "",
+		config.DingTalkTimeWindows,
+		`comma-separated local notification windows; empty allows all day --dingtalk-time-windows <string> | example: --dingtalk-time-windows="09:00-18:00,20:00-23:30"`,
 	)
 
 	// Chatwoot flags

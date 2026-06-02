@@ -75,7 +75,7 @@ func (service *serviceApp) Login(ctx context.Context, deviceID string) (response
 		defer close(chImage) // Ensure channel is closed when done
 		for evt := range ch {
 			response.Code = evt.Code
-			response.Duration = evt.Timeout / time.Second / 2
+			response.Duration = qrVisibleSeconds(evt.Timeout)
 			if evt.Event == "code" {
 				qrPath := fmt.Sprintf("%s/scan-qr-%s.png", config.PathQrCode, fiberUtils.UUIDv4())
 				if err := qrcode.WriteFile(evt.Code, qrcode.Medium, 512, qrPath); err != nil {
@@ -83,7 +83,7 @@ func (service *serviceApp) Login(ctx context.Context, deviceID string) (response
 					continue // Skip sending if QR generation failed
 				}
 				go func(path string, duration time.Duration) {
-					time.Sleep(duration * time.Second)
+					time.Sleep((duration + 15) * time.Second)
 					if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 						logrus.Errorf("[LOGIN][%s] error when remove qrImage file: %v", deviceID, err)
 					}
@@ -122,6 +122,14 @@ func (service *serviceApp) Login(ctx context.Context, deviceID string) (response
 	}
 
 	return response, nil
+}
+
+func qrVisibleSeconds(timeout time.Duration) time.Duration {
+	seconds := timeout / time.Second
+	if seconds <= 0 {
+		return 60
+	}
+	return time.Duration(seconds)
 }
 
 func (service *serviceApp) LoginWithCode(ctx context.Context, deviceID string, phoneNumber string) (loginCode string, err error) {

@@ -134,6 +134,7 @@ func restServer(_ *cobra.Command, _ []string) {
 
 	// Device management routes (no device_id required)
 	rest.InitRestDevice(apiGroup, deviceUsecase)
+	rest.InitRestDingTalkConfig(apiGroup)
 
 	// Device-scoped operations (header-based)
 	headerDeviceGroup := apiGroup.Group("", middleware.DeviceMiddleware(dm))
@@ -167,6 +168,8 @@ func restServer(_ *cobra.Command, _ []string) {
 
 	// Set daily presence pulse scheduler when enabled
 	startPresencePulseSchedulerIfEnabled()
+
+	go openWorkbenchInBrowser()
 
 	if err := app.Listen(config.AppHost + ":" + config.AppPort); err != nil {
 		logrus.Fatalln("Failed to start: ", err.Error())

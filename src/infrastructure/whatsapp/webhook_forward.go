@@ -74,9 +74,10 @@ func getContactMutex(phone string) *sync.Mutex {
 func forwardPayloadToConfiguredWebhooks(ctx context.Context, payload map[string]any, eventName string) error {
 	webhookAllowed := len(config.WhatsappWebhookEvents) == 0 || isEventWhitelisted(eventName)
 	chatwootAllowed := config.ChatwootEnabled && shouldForwardEventToChatwoot(eventName) && isEventWhitelistedForChatwoot(eventName)
+	dingTalkAllowed := shouldForwardToDingTalk(eventName, payload)
 
-	if !webhookAllowed && !chatwootAllowed {
-		logrus.Debugf("Skipping event %s - not allowed for webhooks or Chatwoot", eventName)
+	if !webhookAllowed && !chatwootAllowed && !dingTalkAllowed {
+		logrus.Debugf("Skipping event %s - not allowed for webhooks, Chatwoot, or DingTalk", eventName)
 		return nil
 	}
 
@@ -89,6 +90,15 @@ func forwardPayloadToConfiguredWebhooks(ctx context.Context, payload map[string]
 
 	if chatwootAllowed {
 		go forwardToChatwoot(ctx, payload, eventName)
+	}
+
+	if dingTalkAllowed {
+		if dingTalkErr := submitDingTalk(ctx, eventName, payload); dingTalkErr != nil {
+			logrus.Warnf("Failed forwarding %s to DingTalk: %v", eventName, dingTalkErr)
+			if err == nil {
+				err = dingTalkErr
+			}
+		}
 	}
 
 	return err
@@ -348,7 +358,52 @@ func extractStructuredMessageContent(data map[string]any) string {
 		return "Order message"
 	}
 
+	for _, media := range []struct {
+		key   string
+		label string
+	}{
+		{key: "image", label: "图片消息"},
+		{key: "video", label: "视频消息"},
+		{key: "document", label: "文件消息"},
+		{key: "audio", label: "语音消息"},
+		{key: "sticker", label: "贴纸消息"},
+		{key: "video_note", label: "视频留言"},
+	} {
+		if summary := mediaMessageSummary(data[media.key], media.label); summary != "" {
+			return summary
+		}
+	}
+
 	return ""
+}
+
+func mediaMessageSummary(value any, label string) string {
+	if value == nil {
+		return ""
+	}
+
+	switch media := value.(type) {
+	case map[string]any:
+		if caption, ok := media["caption"].(string); ok && strings.TrimSpace(caption) != "" {
+			return fmt.Sprintf("%s：%s", label, strings.TrimSpace(caption))
+		}
+		if filename, ok := media["filename"].(string); ok && strings.TrimSpace(filename) != "" {
+			return fmt.Sprintf("%s：%s", label, strings.TrimSpace(filename))
+		}
+		return label
+	case map[string]string:
+		if caption := strings.TrimSpace(media["caption"]); caption != "" {
+			return fmt.Sprintf("%s：%s", label, caption)
+		}
+		if filename := strings.TrimSpace(media["filename"]); filename != "" {
+			return fmt.Sprintf("%s：%s", label, filename)
+		}
+		return label
+	case string:
+		return label
+	default:
+		return label
+	}
 }
 
 func extractContactDetails(contact any) (name string, phone string, ok bool) {
