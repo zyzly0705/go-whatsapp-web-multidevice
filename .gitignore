@@ -28,6 +28,7 @@ history-*.json
 .idea/
 .vscode/settings.json
 .factory/
+.superpowers/
 .cursor/mcp.json
 .playwright-mcp/
 
