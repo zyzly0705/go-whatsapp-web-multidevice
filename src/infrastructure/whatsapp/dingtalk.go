@@ -17,6 +17,7 @@ import (
 
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/config"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/utils"
+	"github.com/sirupsen/logrus"
 	"go.mau.fi/whatsmeow/types"
 )
 
@@ -68,7 +69,19 @@ func shouldForwardToDingTalk(eventName string, payload map[string]any) bool {
 func submitDingTalk(ctx context.Context, eventName string, payload map[string]any) error {
 	message := dingTalkMessagePayload(payload)
 	message = enrichDingTalkMessage(ctx, message)
-	return sendDingTalkPayload(ctx, eventName, buildDingTalkPayload(message))
+	err := sendDingTalkPayload(ctx, eventName, buildDingTalkPayload(message))
+
+	status := dingTalkHistoryStatusSuccess
+	errorText := ""
+	if err != nil {
+		status = dingTalkHistoryStatusFailed
+		errorText = err.Error()
+	}
+	if recordErr := recordDingTalkForwardHistory(buildDingTalkHistoryEntry(message, status, errorText)); recordErr != nil {
+		logrus.Warnf("record dingtalk forward history failed: %v", recordErr)
+	}
+
+	return err
 }
 
 func SendDingTalkTest(ctx context.Context) error {

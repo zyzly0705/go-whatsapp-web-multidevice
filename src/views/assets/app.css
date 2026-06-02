@@ -593,6 +593,103 @@ body {
     margin-top: 12px;
 }
 
+.forward-history-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.forward-history-row {
+    border: 1px solid var(--soft-line-color);
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 12px;
+    min-width: 0;
+}
+
+.forward-history-head,
+.forward-history-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+}
+
+.forward-history-head {
+    color: var(--muted-text-color);
+    font-size: 13px;
+}
+
+.history-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 26px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--soft-line-color);
+    color: #4b5563;
+    background: #fafafa;
+    font-weight: 700;
+}
+
+.history-status.success {
+    color: #166534;
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+}
+
+.history-status.failed {
+    color: #991b1b;
+    border-color: #fecaca;
+    background: #fef2f2;
+}
+
+.forward-history-meta {
+    margin-top: 10px;
+}
+
+.forward-history-meta span {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    color: var(--muted-text-color);
+    font-size: 13px;
+}
+
+.forward-history-meta strong {
+    color: var(--text-color);
+    font-size: 12px;
+}
+
+.forward-history-meta span,
+.forward-history-row p {
+    overflow-wrap: anywhere;
+}
+
+.forward-history-row p {
+    margin: 10px 0 0;
+    padding: 10px;
+    border-radius: 8px;
+    background: #fafafa;
+    color: var(--text-color);
+    line-height: 1.45;
+}
+
+.forward-history-error {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #fff8f8;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    font-size: 12px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
 .group-row,
 .device-row {
     width: 100%;
@@ -671,6 +768,10 @@ body {
     }
 
     .qr-box {
+        grid-template-columns: 1fr;
+    }
+
+    .forward-history-list {
         grid-template-columns: 1fr;
     }
 }

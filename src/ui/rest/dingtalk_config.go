@@ -37,6 +37,7 @@ func InitRestDingTalkConfig(app fiber.Router) DingTalkConfig {
 	app.Get("/dingtalk/config", rest.GetConfig)
 	app.Post("/dingtalk/config", rest.UpdateConfig)
 	app.Post("/dingtalk/test", rest.SendTest)
+	app.Get("/dingtalk/history", rest.GetHistory)
 	return rest
 }
 
@@ -136,6 +137,20 @@ func (handler DingTalkConfig) SendTest(c *fiber.Ctx) error {
 		Code:    "SUCCESS",
 		Message: "DingTalk test sent",
 		Results: dingTalkConfigSnapshot(),
+	})
+}
+
+func (handler DingTalkConfig) GetHistory(c *fiber.Ctx) error {
+	limit := c.QueryInt("limit", 50)
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+
+	return c.JSON(utils.ResponseData{
+		Status:  200,
+		Code:    "SUCCESS",
+		Message: "DingTalk forward history",
+		Results: whatsapp.ListDingTalkForwardHistory(limit),
 	})
 }
 

@@ -14,12 +14,14 @@ export default {
             deviceStatusPolls: 0,
             loadingDevices: false,
             loadingGroups: false,
+            loadingHistory: false,
             loggingIn: false,
             loggingOut: false,
             loginError: '',
             saving: false,
             savingAlias: false,
             testing: false,
+            forwardHistory: [],
             form: {
                 enabled: false,
                 webhook: '',
@@ -113,6 +115,26 @@ export default {
         },
         groupMemberCount(group) {
             return group?.Participants?.length || group?.ParticipantCount || 0;
+        },
+        historyStatusLabel(status) {
+            return status === 'success' ? '已转发' : '转发失败';
+        },
+        historyStatusIcon(status) {
+            return status === 'success' ? 'check circle icon' : 'exclamation circle icon';
+        },
+        formatHistoryTime(value) {
+            if (!value) return '-';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return value;
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+            });
         },
         setDeviceHeader(deviceId) {
             this.selectedDeviceId = deviceId || '';
@@ -312,6 +334,17 @@ export default {
                 this.toastError(error, '加载钉钉配置失败');
             }
         },
+        async fetchForwardHistory() {
+            try {
+                this.loadingHistory = true;
+                const response = await window.http.get('/dingtalk/history?limit=50');
+                this.forwardHistory = response.data?.results || [];
+            } catch (error) {
+                this.toastError(error, '加载转发历史失败');
+            } finally {
+                this.loadingHistory = false;
+            }
+        },
         applyConfig(config) {
             const firstWindow = (config.time_windows || [])[0] || '';
             const [timeStart, timeEnd] = this.parseTimeWindow(firstWindow);
@@ -395,6 +428,7 @@ export default {
                 this.testing = true;
                 await window.http.post('/dingtalk/test');
                 this.toastSuccess('钉钉测试已发送');
+                await this.fetchForwardHistory();
             } catch (error) {
                 this.toastError(error, '钉钉测试发送失败');
             } finally {
@@ -403,7 +437,7 @@ export default {
         },
     },
         mounted() {
-            Promise.all([this.fetchDevices(), this.fetchConfig()]).finally(() => {
+            Promise.all([this.fetchDevices(), this.fetchConfig(), this.fetchForwardHistory()]).finally(() => {
                 document.getElementById('app').style.display = 'block';
                 document.getElementById('splash-screen').classList.add('fade-out');
                 if (!this.isLoggedIn) {
@@ -560,6 +594,32 @@ export default {
                 </div>
             </section>
         </div>
+
+        <section class="tool-panel">
+            <div class="section-title-row">
+                <h3><i class="history icon"></i> 转发历史</h3>
+                <button class="ui button" :class="{loading: loadingHistory}" @click="fetchForwardHistory">刷新历史</button>
+            </div>
+            <div class="summary-line">最近 50 条钉钉转发记录，只保存消息摘要和转发结果。</div>
+            <div class="forward-history-list" :class="{loading: loadingHistory}">
+                <div class="forward-history-row" v-for="item in forwardHistory" :key="item.id">
+                    <div class="forward-history-head">
+                        <span class="history-status" :class="item.status">
+                            <i :class="historyStatusIcon(item.status)"></i>
+                            {{ historyStatusLabel(item.status) }}
+                        </span>
+                        <span>{{ formatHistoryTime(item.forwarded_at) }}</span>
+                    </div>
+                    <div class="forward-history-meta">
+                        <span><strong>群/会话</strong>{{ item.chat_name || '-' }}</span>
+                        <span><strong>发送人</strong>{{ item.sender || '-' }}</span>
+                    </div>
+                    <p>{{ item.message || '-' }}</p>
+                    <div class="forward-history-error" v-if="item.error">{{ item.error }}</div>
+                </div>
+                <div class="empty-state" v-if="!forwardHistory.length && !loadingHistory">还没有转发记录。命中关键词并发送到钉钉后会显示在这里。</div>
+            </div>
+        </section>
 
         <section class="tool-panel">
             <div class="section-title-row">

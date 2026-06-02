@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -186,6 +187,36 @@ func TestBuildDingTalkPayloadIdentifiesImageMessages(t *testing.T) {
 	})
 }
 
+func TestDingTalkForwardHistoryPersistsRecentRecords(t *testing.T) {
+	withDingTalkHistoryPath(t, filepath.Join(t.TempDir(), "dingtalk-forward-history.json"), func() {
+		message := map[string]any{
+			"chat_id":   "120363@test@g.us",
+			"chat_name": "测试预警群",
+			"from_name": "Alice",
+			"timestamp": "2026-06-02T03:31:00Z",
+			"body":      "重要业务提醒：订单异常",
+		}
+
+		if err := recordDingTalkForwardHistory(buildDingTalkHistoryEntry(message, "success", "")); err != nil {
+			t.Fatalf("record history: %v", err)
+		}
+		if err := recordDingTalkForwardHistory(buildDingTalkHistoryEntry(message, "failed", "network timeout")); err != nil {
+			t.Fatalf("record failed history: %v", err)
+		}
+
+		got := ListDingTalkForwardHistory(10)
+		if len(got) != 2 {
+			t.Fatalf("expected 2 history entries, got %d", len(got))
+		}
+		if got[0].Status != "failed" || got[0].Error != "network timeout" {
+			t.Fatalf("expected newest failed entry first, got %#v", got[0])
+		}
+		if got[1].ChatName != "测试预警群" || got[1].Sender != "Alice" || got[1].Message != "重要业务提醒：订单异常" {
+			t.Fatalf("unexpected history entry: %#v", got[1])
+		}
+	})
+}
+
 func TestUnnamedGroupLabelIncludesMemberCount(t *testing.T) {
 	if got := unnamedGroupLabel(2); got != "未命名群组（2 位成员）" {
 		t.Fatalf("unexpected label: %s", got)
@@ -245,6 +276,7 @@ func withDingTalkConfig(t *testing.T, fn func()) {
 	originalAtMobiles := config.DingTalkAtMobiles
 	originalAtAll := config.DingTalkAtAll
 	originalTimeWindows := config.DingTalkTimeWindows
+	originalHistoryPath := dingTalkForwardHistoryPathOverride
 
 	defer func() {
 		config.DingTalkEnabled = originalEnabled
@@ -257,6 +289,7 @@ func withDingTalkConfig(t *testing.T, fn func()) {
 		config.DingTalkAtMobiles = originalAtMobiles
 		config.DingTalkAtAll = originalAtAll
 		config.DingTalkTimeWindows = originalTimeWindows
+		dingTalkForwardHistoryPathOverride = originalHistoryPath
 	}()
 
 	config.DingTalkEnabled = false
@@ -269,6 +302,19 @@ func withDingTalkConfig(t *testing.T, fn func()) {
 	config.DingTalkAtMobiles = nil
 	config.DingTalkAtAll = false
 	config.DingTalkTimeWindows = nil
+	dingTalkForwardHistoryPathOverride = filepath.Join(t.TempDir(), "dingtalk-forward-history.json")
 
+	fn()
+}
+
+func withDingTalkHistoryPath(t *testing.T, path string, fn func()) {
+	t.Helper()
+
+	original := dingTalkForwardHistoryPathOverride
+	defer func() {
+		dingTalkForwardHistoryPathOverride = original
+	}()
+
+	dingTalkForwardHistoryPathOverride = path
 	fn()
 }
