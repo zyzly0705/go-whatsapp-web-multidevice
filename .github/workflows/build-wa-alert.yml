@@ -1,4 +1,4 @@
-name: Build WA Alert
+name: Build WA Sentinel
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build macOS DMG and Windows binary
+    name: Build WA Sentinel macOS DMG and Windows binary
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -34,9 +34,9 @@ jobs:
       - name: Upload macOS and Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: wa-alert-macos-windows
+          name: wa-sentinel-macos-windows
           path: |
-            src/dist/wa-alert-macos-amd64.dmg
-            src/dist/wa-alert-macos-arm64.dmg
-            src/dist/wa-alert-windows-amd64.exe
+            src/dist/wa-sentinel-macos-amd64.dmg
+            src/dist/wa-sentinel-macos-arm64.dmg
+            src/dist/wa-sentinel-windows-amd64.exe
           if-no-files-found: error

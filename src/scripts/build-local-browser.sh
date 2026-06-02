@@ -14,7 +14,7 @@ build_target() {
 
   echo "Building ${goos}/${goarch}..."
   CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
-    go build -tags purego -ldflags "-s -w" -o "dist/wa-alert-${goos}-${goarch}${ext}" .
+    go build -tags purego -ldflags "-s -w" -o "dist/wa-sentinel-${goos}-${goarch}${ext}" .
 }
 
 build_target darwin arm64
