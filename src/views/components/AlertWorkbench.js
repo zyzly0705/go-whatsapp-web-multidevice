@@ -603,9 +603,6 @@ export default {
         Promise.all([this.fetchDevices(), this.fetchConfig(), this.fetchForwardHistory()]).finally(() => {
             document.getElementById('app').style.display = 'block';
             document.getElementById('splash-screen').classList.add('fade-out');
-            if (!this.isLoggedIn) {
-                this.startDeviceStatusPolling();
-            }
         });
     },
     beforeUnmount() {
