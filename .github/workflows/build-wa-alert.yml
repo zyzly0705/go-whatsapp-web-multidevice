@@ -8,8 +8,8 @@ on:
 
 jobs:
   build:
-    name: Build macOS and Windows binaries
-    runs-on: ubuntu-latest
+    name: Build macOS DMG and Windows binary
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,12 +27,16 @@ jobs:
         working-directory: src
         run: ./scripts/build-local-browser.sh
 
+      - name: Package macOS DMG installers
+        working-directory: src
+        run: ./scripts/package-macos-dmg.sh
+
       - name: Upload macOS and Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: wa-alert-macos-windows
           path: |
-            src/dist/wa-alert-darwin-amd64
-            src/dist/wa-alert-darwin-arm64
+            src/dist/wa-alert-macos-amd64.dmg
+            src/dist/wa-alert-macos-arm64.dmg
             src/dist/wa-alert-windows-amd64.exe
           if-no-files-found: error
